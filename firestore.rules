@@ -1,0 +1,190 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // =========================================================================
+    // Core Authentication & Role Verification Functions
+    // =========================================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isUser(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Retrieve the member record for the calling user in a specific family
+    function getMemberDoc(familyId) {
+      return get(/databases/$(database)/documents/families/$(familyId)/members/$(request.auth.uid));
+    }
+
+    // Verify whether the caller is an active member of this family
+    function isFamilyMember(familyId) {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/families/$(familyId)/members/$(request.auth.uid));
+    }
+
+    // Verify whether the caller has Admin or Owner privileges in this family
+    function isFamilyAdmin(familyId) {
+      return isFamilyMember(familyId) &&
+        (getMemberDoc(familyId).data.role == 'Owner' || getMemberDoc(familyId).data.role == 'Admin');
+    }
+
+    // Verify whether the caller is the Owner of this family
+    function isFamilyOwner(familyId) {
+      return isFamilyMember(familyId) &&
+        getMemberDoc(familyId).data.role == 'Owner';
+    }
+
+    // =========================================================================
+    // 1. User Profiles Collection: /users/{userId}
+    // =========================================================================
+    match /users/{userId} {
+      // SECURITY FIX (VULN-04): Restrict profile reading to the account owner
+      allow read: if isUser(userId);
+
+      // Users can only create and update their own profile document
+      allow create, update: if isUser(userId);
+
+      // Prevent account profile document deletion directly
+      allow delete: if false;
+    }
+
+    // =========================================================================
+    // 2. Family Workspaces Collection: /families/{familyId}
+    // =========================================================================
+    match /families/{familyId} {
+      // Read: ONLY authorized members of THIS family can read its details
+      allow read: if isFamilyMember(familyId);
+
+      // Create: Authenticated users can create a new family workspace where they are the owner
+      allow create: if isAuthenticated() && request.resource.data.ownerId == request.auth.uid;
+
+      // Update: Only Owner or Admin of this family can update family profile
+      allow update: if isFamilyAdmin(familyId);
+
+      // Delete: Only the Owner can permanently delete a family workspace
+      allow delete: if isFamilyOwner(familyId);
+
+      // -----------------------------------------------------------------------
+      // Subcollection: /families/{familyId}/members/{memberId}
+      // -----------------------------------------------------------------------
+      match /members/{memberId} {
+        // Read: Any member of the family can view the member roster
+        allow read: if isFamilyMember(familyId);
+
+        // Create:
+        // SECURITY FIX (VULN-01): Removed wildcard self-join. Member addition is strictly limited to:
+        // 1. Family Admin or Owner adding a member or dependent
+        // 2. Initial Owner matching family document ownerId
+        // 3. User joining via verified invitation addressed to their email
+        allow create: if isFamilyAdmin(familyId) ||
+          (
+            isAuthenticated() &&
+            request.auth.uid == memberId &&
+            request.resource.data.role == 'Owner' &&
+            get(/databases/$(database)/documents/families/$(familyId)).data.ownerId == request.auth.uid
+          ) ||
+          (
+            isAuthenticated() &&
+            request.auth.uid == memberId &&
+            request.resource.data.invitationId != null &&
+            exists(/databases/$(database)/documents/families/$(familyId)/invitations/$(request.resource.data.invitationId)) &&
+            get(/databases/$(database)/documents/families/$(familyId)/invitations/$(request.resource.data.invitationId)).data.email.lower() == request.auth.token.email.lower() &&
+            get(/databases/$(database)/documents/families/$(familyId)/invitations/$(request.resource.data.invitationId)).data.status in ['Pending', 'Accepted'] &&
+            request.resource.data.role == get(/databases/$(database)/documents/families/$(familyId)/invitations/$(request.resource.data.invitationId)).data.role
+          );
+
+        // Update:
+        // - Admin or Owner can update details
+        // - CRITICAL ANTI-SELF-ELEVATION: Users can NEVER change their OWN role!
+        allow update: if isFamilyAdmin(familyId) &&
+          (request.auth.uid != memberId || request.resource.data.role == resource.data.role);
+
+        // Delete:
+        // - Admin or Owner can remove a member
+        // - The Owner cannot be deleted (must transfer ownership first)
+        allow delete: if isFamilyAdmin(familyId) && resource.data.role != 'Owner';
+      }
+
+      // -----------------------------------------------------------------------
+      // Subcollection: /families/{familyId}/invitations/{invitationId}
+      // -----------------------------------------------------------------------
+      match /invitations/{invitationId} {
+        // Read: Members of the family OR the specific user whose email was invited
+        allow read: if isFamilyMember(familyId) ||
+          (isAuthenticated() && request.auth.token.email.lower() == resource.data.email.lower());
+
+        // Create: Only Owner or Admin can issue new invitations
+        allow create: if isFamilyAdmin(familyId);
+
+        // Update: Owner/Admin can manage invitations, OR the invitee can Accept/Reject
+        allow update: if isFamilyAdmin(familyId) ||
+          (
+            isAuthenticated() &&
+            request.auth.token.email.lower() == resource.data.email.lower() &&
+            request.resource.data.status in ['Accepted', 'Rejected'] &&
+            request.resource.data.familyId == resource.data.familyId &&
+            request.resource.data.role == resource.data.role
+          );
+
+        // Delete: Only Owner or Admin can revoke invitations
+        allow delete: if isFamilyAdmin(familyId);
+      }
+
+      // -----------------------------------------------------------------------
+      // Subcollection: /families/{familyId}/documents/{docId}
+      // -----------------------------------------------------------------------
+      match /documents/{docId} {
+        // Read: ONLY active family members can read documents
+        allow read: if isFamilyMember(familyId);
+
+        // Create: Any active family member can upload a document with verified payload schema
+        allow create: if isFamilyMember(familyId) &&
+          request.resource.data.familyId == familyId &&
+          request.resource.data.category in ['Aadhaar', 'PAN Card', 'Passport', 'Voter ID', 'Driving License', 'Other Documents', 'Other'] &&
+          request.resource.data.title is string &&
+          request.resource.data.title.size() > 0 &&
+          request.resource.data.title.size() <= 120;
+
+        // Update: Owner/Admin can update, or member can update their own document
+        // Cannot alter document familyId
+        allow update: if (isFamilyAdmin(familyId) ||
+          (isFamilyMember(familyId) && resource.data.memberId == request.auth.uid)) &&
+          request.resource.data.familyId == resource.data.familyId;
+
+        // Delete: Owner/Admin can delete any document; member can delete only their own
+        allow delete: if isFamilyAdmin(familyId) ||
+          (isFamilyMember(familyId) && resource.data.memberId == request.auth.uid);
+      }
+    }
+
+    // =========================================================================
+    // 3. Fast Invitation Lookup Registry: /invitations/{inviteCode}
+    // =========================================================================
+    // SECURITY FIX (VULN-02 & VULN-03): Scoped access rather than global open reads/deletes
+    match /invitations/{inviteCode} {
+      // Read: Only family members or the invited user matching email
+      allow read: if isAuthenticated() && (
+        isFamilyMember(resource.data.familyId) ||
+        request.auth.token.email.lower() == resource.data.email.lower()
+      );
+
+      // Create: Only an Admin/Owner of the referenced family can create the registry entry
+      allow create: if isAuthenticated() && isFamilyAdmin(request.resource.data.familyId);
+
+      // Update: Admin/Owner of the family OR the invitee accepting/rejecting
+      allow update: if isFamilyAdmin(resource.data.familyId) || (
+        isAuthenticated() &&
+        request.auth.token.email.lower() == resource.data.email.lower() &&
+        request.resource.data.status in ['Accepted', 'Rejected'] &&
+        request.resource.data.familyId == resource.data.familyId &&
+        request.resource.data.role == resource.data.role
+      );
+
+      // Delete: Only an Admin/Owner of the family can revoke/delete the entry
+      allow delete: if isAuthenticated() && isFamilyAdmin(resource.data.familyId);
+    }
+  }
+}

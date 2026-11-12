@@ -1,0 +1,87 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // =========================================================================
+    // Security Helper Functions
+    // =========================================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Verify user is an active member of this family in Firestore
+    function isFamilyMember(familyId) {
+      return isAuthenticated() &&
+        firestore.exists(/databases/(default)/documents/families/$(familyId)/members/$(request.auth.uid));
+    }
+
+    // Retrieve caller's member record from Firestore
+    function getMemberData(familyId) {
+      return firestore.get(/databases/(default)/documents/families/$(familyId)/members/$(request.auth.uid)).data;
+    }
+
+    // Verify caller is an Owner or Admin of this family
+    function isFamilyAdmin(familyId) {
+      return isFamilyMember(familyId) &&
+        (getMemberData(familyId).role == 'Owner' || getMemberData(familyId).role == 'Admin');
+    }
+
+    // Validate allowed file mime types: PDF, PNG, JPEG, JPG
+    function isValidFileType() {
+      return request.resource.contentType.matches('application/pdf|image/png|image/jpeg|image/jpg');
+    }
+
+    // Validate allowed file extensions to prevent MIME-confusion / executable bypasses
+    function isValidFileExtension(fileName) {
+      return fileName.matches('.*\\.(pdf|png|jpg|jpeg|PDF|PNG|JPG|JPEG)$');
+    }
+
+    // Validate max file size limit: 10 megabytes (10 * 1024 * 1024 bytes)
+    function isValidFileSize() {
+      return request.resource.size <= 10 * 1024 * 1024;
+    }
+
+    // Validate file name structure and prevent path traversal / directory injection
+    function isValidFileName(fileName) {
+      return fileName.size() > 0 &&
+        fileName.size() <= 200 &&
+        fileName.matches('^(front|back)_[0-9]+_[a-zA-Z0-9._-]+$') &&
+        isValidFileExtension(fileName);
+    }
+
+    // =========================================================================
+    // Secure Family Document Repository Path:
+    // /families/{familyId}/documents/{docId}/{fileName}
+    // =========================================================================
+    match /families/{familyId}/documents/{docId}/{fileName} {
+
+      // Read & Download: ONLY authorized active members of THIS family
+      allow read: if isFamilyMember(familyId);
+
+      // Upload: Active family member with valid size, MIME, extension, and bound uploader metadata
+      allow create: if isFamilyMember(familyId) &&
+        isValidFileType() &&
+        isValidFileSize() &&
+        isValidFileName(fileName) &&
+        request.resource.metadata != null &&
+        request.resource.metadata.uploadedBy == request.auth.uid;
+
+      // Replace / Update: Admins, Owners, or the original uploader (safe metadata check)
+      allow update: if (isFamilyAdmin(familyId) ||
+        (isFamilyMember(familyId) && resource.metadata != null && resource.metadata.uploadedBy == request.auth.uid)) &&
+        isValidFileType() &&
+        isValidFileSize() &&
+        isValidFileName(fileName);
+
+      // Delete: Admins, Owners, or the original uploader
+      allow delete: if isFamilyAdmin(familyId) ||
+        (isFamilyMember(familyId) && resource.metadata != null && resource.metadata.uploadedBy == request.auth.uid);
+    }
+
+    // Reject all other storage paths
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
