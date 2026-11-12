@@ -89,16 +89,16 @@ export const AuthProvider = ({ children }) => {
       });
       return unsubscribe;
     } else {
-      // Local fallback mode when Firebase keys are not configured yet
+      // Local mode when Firebase keys are not configured
       const saved = localStorage.getItem('fv_simulated_user');
       if (saved) {
         try {
           setCurrentUser(JSON.parse(saved));
         } catch {
-          setCurrentUser(DEMO_ACCOUNTS.Owner);
+          setCurrentUser(null);
         }
       } else {
-        setCurrentUser(DEMO_ACCOUNTS.Owner);
+        setCurrentUser(null);
       }
       setLoading(false);
     }

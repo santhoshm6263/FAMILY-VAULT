@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Shield, Lock, Mail, ArrowRight, Sparkles, AlertCircle, Info } from 'lucide-react';
+import { Shield, Lock, Mail, AlertCircle } from 'lucide-react';
 import { Input } from '../../components/common/Input';
 import { Button } from '../../components/common/Button';
 import { useAuth } from '../../context/AuthContext';
@@ -8,14 +8,14 @@ import { useVault } from '../../context/VaultContext';
 import { getFriendlyFirebaseErrorMessage } from '../../utils/firebaseErrors';
 
 export const LoginPage = () => {
-  const [email, setEmail] = useState('santhosh@familyvault.io');
-  const [password, setPassword] = useState('password123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  const { login, loginWithGoogle, demoLogin, isFirebaseConfigured } = useAuth();
+  const { login, loginWithGoogle } = useAuth();
   const { showToast } = useVault();
   const navigate = useNavigate();
   const location = useLocation();
@@ -83,14 +83,6 @@ export const LoginPage = () => {
     }
   };
 
-  const handleQuickFill = (role, demoEmail) => {
-    setEmail(demoEmail);
-    setPassword('demoPass123');
-    demoLogin(role);
-    setErrorMessage('');
-    showToast(`Switched credentials to ${role} demo account`, 'info');
-  };
-
   return (
     <div
       style={{
@@ -141,29 +133,6 @@ export const LoginPage = () => {
           </p>
         </div>
 
-        {/* Configuration status indicator */}
-        {!isFirebaseConfigured && (
-          <div
-            style={{
-              padding: '10px 14px',
-              backgroundColor: 'var(--amber-50)',
-              borderRadius: 'var(--radius-md)',
-              border: '1px solid var(--amber-200)',
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: '10px',
-              fontSize: '0.78rem',
-              color: 'var(--amber-700)',
-              marginBottom: '18px'
-            }}
-          >
-            <Info size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
-            <div>
-              <strong>Firebase Setup Notice:</strong> Add your Firebase API keys to <code>.env</code> to connect live Firebase Auth. Running with local development fallback.
-            </div>
-          </div>
-        )}
-
         {/* Error Alert Message */}
         {errorMessage && (
           <div
@@ -184,69 +153,6 @@ export const LoginPage = () => {
             <span>{errorMessage}</span>
           </div>
         )}
-
-        {/* 1-Click Demo Accounts Switcher Pill */}
-        <div
-          style={{
-            padding: '12px 14px',
-            backgroundColor: 'var(--primary-50)',
-            borderRadius: 'var(--radius-md)',
-            border: '1px solid var(--primary-100)',
-            marginBottom: '20px'
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase', marginBottom: '6px' }}>
-            <Sparkles size={14} />
-            <span>1-Click Test Credentials:</span>
-          </div>
-          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              onClick={() => handleQuickFill('Owner', 'santhosh@familyvault.io')}
-              style={{
-                padding: '4px 8px',
-                borderRadius: '4px',
-                backgroundColor: '#ffffff',
-                border: '1px solid var(--primary-200)',
-                fontSize: '0.75rem',
-                fontWeight: 600,
-                color: 'var(--primary)'
-              }}
-            >
-              Owner (Santhosh)
-            </button>
-            <button
-              type="button"
-              onClick={() => handleQuickFill('Admin', 'priya.s@gmail.com')}
-              style={{
-                padding: '4px 8px',
-                borderRadius: '4px',
-                backgroundColor: '#ffffff',
-                border: '1px solid var(--primary-200)',
-                fontSize: '0.75rem',
-                fontWeight: 600,
-                color: 'var(--primary)'
-              }}
-            >
-              Admin (Priya)
-            </button>
-            <button
-              type="button"
-              onClick={() => handleQuickFill('Member', 'rajesh.sharma@outlook.com')}
-              style={{
-                padding: '4px 8px',
-                borderRadius: '4px',
-                backgroundColor: '#ffffff',
-                border: '1px solid var(--primary-200)',
-                fontSize: '0.75rem',
-                fontWeight: 600,
-                color: 'var(--slate-700)'
-              }}
-            >
-              Member (Rajesh)
-            </button>
-          </div>
-        </div>
 
         {/* Google Authentication Button */}
         <button

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Shield, Lock, Mail, User, Users, AlertCircle, Info } from 'lucide-react';
+import { Shield, Lock, Mail, User, Users, AlertCircle } from 'lucide-react';
 import { Input } from '../../components/common/Input';
 import { Button } from '../../components/common/Button';
 import { useAuth } from '../../context/AuthContext';
@@ -147,29 +147,6 @@ export const RegisterPage = () => {
             Free AES-256 encrypted space for your household
           </p>
         </div>
-
-        {/* Configuration notice */}
-        {!isFirebaseConfigured && (
-          <div
-            style={{
-              padding: '10px 14px',
-              backgroundColor: 'var(--amber-50)',
-              borderRadius: 'var(--radius-md)',
-              border: '1px solid var(--amber-200)',
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: '10px',
-              fontSize: '0.78rem',
-              color: 'var(--amber-700)',
-              marginBottom: '18px'
-            }}
-          >
-            <Info size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
-            <div>
-              <strong>Firebase Notice:</strong> To store accounts in your own Firebase project, populate <code>.env</code> with your keys. Currently simulating authentication.
-            </div>
-          </div>
-        )}
 
         {/* Error Alert */}
         {errorMessage && (

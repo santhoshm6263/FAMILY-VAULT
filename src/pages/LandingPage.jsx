@@ -22,12 +22,6 @@ import { useAuth } from '../context/AuthContext';
 
 export const LandingPage = () => {
   const navigate = useNavigate();
-  const { demoLogin } = useAuth();
-
-  const handleLaunchDemo = (role = 'Owner') => {
-    demoLogin(role);
-    navigate('/app');
-  };
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#ffffff', color: 'var(--slate-900)' }}>
@@ -120,52 +114,14 @@ export const LandingPage = () => {
               </Button>
             </Link>
 
-            <button
-              onClick={() => handleLaunchDemo('Owner')}
-              className="btn btn-secondary btn-lg"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
-            >
-              <Sparkles size={18} style={{ color: 'var(--amber-500)' }} />
-              <span>Explore Interactive Demo</span>
-            </button>
-          </div>
-
-          {/* Interactive Quick Launch Pills for Reviewer */}
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '10px',
-              padding: '8px 16px',
-              borderRadius: 'var(--radius-full)',
-              backgroundColor: '#ffffff',
-              border: '1px solid var(--slate-200)',
-              boxShadow: 'var(--shadow-sm)',
-              fontSize: '0.8125rem',
-              color: 'var(--slate-600)'
-            }}
-          >
-            <span style={{ fontWeight: 600 }}>Test instant demo accounts:</span>
-            <button
-              onClick={() => handleLaunchDemo('Owner')}
-              style={{ color: 'var(--primary)', fontWeight: 700, padding: '2px 8px', borderRadius: '4px', backgroundColor: 'var(--primary-50)' }}
-            >
-              Owner (Santhosh)
-            </button>
-            <span>•</span>
-            <button
-              onClick={() => handleLaunchDemo('Admin')}
-              style={{ color: 'var(--primary)', fontWeight: 700, padding: '2px 8px', borderRadius: '4px', backgroundColor: 'var(--primary-50)' }}
-            >
-              Admin (Priya)
-            </button>
-            <span>•</span>
-            <button
-              onClick={() => handleLaunchDemo('Member')}
-              style={{ color: 'var(--slate-700)', fontWeight: 700, padding: '2px 8px', borderRadius: '4px', backgroundColor: 'var(--slate-100)' }}
-            >
-              Member (Rajesh)
-            </button>
+            <Link to="/login">
+              <button
+                className="btn btn-secondary btn-lg"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+              >
+                <span>Sign In to Vault</span>
+              </button>
+            </Link>
           </div>
         </div>
 

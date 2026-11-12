@@ -3,7 +3,6 @@ import {
   Shield,
   HardDrive,
   Download,
-  RotateCcw,
   Bell,
   Lock
 } from 'lucide-react';
@@ -127,7 +126,7 @@ export const SettingsPage = () => {
           </div>
         </div>
 
-        {/* Export and reset buttons */}
+        {/* Export audit log button */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '20px', flexWrap: 'wrap' }}>
           <Button
             variant="secondary"
@@ -135,14 +134,6 @@ export const SettingsPage = () => {
             onClick={handleExportSummary}
           >
             Export Vault Audit JSON
-          </Button>
-
-          <Button
-            variant="outline"
-            icon={RotateCcw}
-            onClick={resetToSampleData}
-          >
-            Reset Vault to Sample Demo Data
           </Button>
         </div>
       </div>

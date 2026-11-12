@@ -6,7 +6,7 @@ import { useVault } from '../../context/VaultContext';
 import { Button } from '../../components/common/Button';
 
 export const VerifyEmailPage = () => {
-  const { currentUser, resendVerificationEmail, reloadUser, logout, isFirebaseConfigured } = useAuth();
+  const { currentUser, resendVerificationEmail, reloadUser, logout } = useAuth();
   const { showToast } = useVault();
   const navigate = useNavigate();
 
@@ -160,27 +160,6 @@ export const VerifyEmailPage = () => {
           >
             {resendCooldown > 0 ? `Resend Available in ${resendCooldown}s` : 'Resend Verification Email'}
           </Button>
-
-          {/* Dev Mode instant bypass if running locally without real SMTP */}
-          {!isFirebaseConfigured && (
-            <button
-              type="button"
-              onClick={handleSimulateVerify}
-              style={{
-                marginTop: '6px',
-                padding: '8px 12px',
-                borderRadius: 'var(--radius-md)',
-                backgroundColor: 'var(--emerald-50)',
-                border: '1px solid var(--emerald-200)',
-                color: 'var(--emerald-700)',
-                fontSize: '0.78rem',
-                fontWeight: 700,
-                cursor: 'pointer'
-              }}
-            >
-              Simulate Instant Verification (Dev / Evaluation Mode)
-            </button>
-          )}
 
           <button
             type="button"
