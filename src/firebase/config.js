@@ -3,17 +3,17 @@ import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
-// Vite environment variables for Firebase configuration
+// Vite environment variables with production live Firebase configuration defaults
 const env = typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env : {};
 
 const firebaseConfig = {
-  apiKey: env.VITE_FIREBASE_API_KEY,
-  authDomain: env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: env.VITE_FIREBASE_APP_ID,
-  measurementId: env.VITE_FIREBASE_MEASUREMENT_ID
+  apiKey: env.VITE_FIREBASE_API_KEY || "AIzaSyB1DCyoeiaBwB_tk645p18v3mxeJSuG1hY",
+  authDomain: env.VITE_FIREBASE_AUTH_DOMAIN || "family-vault-98059.firebaseapp.com",
+  projectId: env.VITE_FIREBASE_PROJECT_ID || "family-vault-98059",
+  storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET || "family-vault-98059.firebasestorage.app",
+  messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID || "1050846106644",
+  appId: env.VITE_FIREBASE_APP_ID || "1:1050846106644:web:64ac19451e3904be438301",
+  measurementId: env.VITE_FIREBASE_MEASUREMENT_ID || "G-B7SK4QEC08"
 };
 
 // Check if actual credentials have been supplied (not empty or default placeholders)

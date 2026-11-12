@@ -11,8 +11,6 @@ import {
   arrayRemove
 } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from './config';
-import { INITIAL_MEMBERS, INITIAL_FAMILY_PROFILE } from '../data/initialMembers';
-import { INITIAL_DOCUMENTS } from '../data/initialDocuments';
 
 /**
  * ============================================================================
@@ -79,8 +77,8 @@ export const syncUserProfile = async (user, additionalData = {}) => {
       email: user.email?.toLowerCase() || '',
       displayName: user.displayName || user.name || 'Family Member',
       photoURL: user.avatar || '',
-      currentFamilyId: additionalData.familyId || 'fam-8842',
-      familyIds: additionalData.familyId ? [additionalData.familyId] : ['fam-8842'],
+      currentFamilyId: additionalData.familyId || null,
+      familyIds: additionalData.familyId ? [additionalData.familyId] : [],
       createdAt: new Date().toISOString()
     };
     localStorage.setItem(`fv_user_profile_${user.uid}`, JSON.stringify(newProfile));
@@ -101,10 +99,10 @@ export const createFamilyWorkspace = async (user, familyName, planTier = 'Family
     name: familyName.trim(),
     vaultCode: vaultCode,
     ownerId: user.uid,
-    createdBy: user.email,
+    createdBy: user.email || 'user',
     createdAt: new Date().toISOString(),
     planTier: planTier,
-    storageUsed: '0.1 MB',
+    storageUsed: '0 MB',
     maxStorage: '500 MB',
     securityLevel: 'AES-256 GCM Client-Side',
     memberCount: 1
@@ -113,11 +111,11 @@ export const createFamilyWorkspace = async (user, familyName, planTier = 'Family
   const initialMember = {
     id: user.uid,
     uid: user.uid,
-    name: user.displayName || user.name || 'Household Head',
-    email: user.email,
+    name: user.displayName || user.name || (user.email ? user.email.split('@')[0] : 'Family Head'),
+    email: user.email || '',
     role: 'Owner',
     relation: 'Self / Head of Family',
-    phone: user.phone || '+91 98765 43210',
+    phone: user.phone || '',
     avatar: user.photoURL || user.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
     joinedDate: new Date().toISOString().split('T')[0],
     status: 'Active',
@@ -139,11 +137,18 @@ export const createFamilyWorkspace = async (user, familyName, planTier = 'Family
 
     // 3. Update user profile with new familyId and switch currentFamilyId
     const userRef = doc(db, 'users', user.uid);
-    await updateDoc(userRef, {
-      familyIds: arrayUnion(familyId),
-      currentFamilyId: familyId,
-      updatedAt: serverTimestamp()
-    });
+    await setDoc(
+      userRef,
+      {
+        uid: user.uid,
+        email: user.email?.toLowerCase() || '',
+        displayName: user.displayName || user.name || initialMember.name,
+        currentFamilyId: familyId,
+        familyIds: arrayUnion(familyId),
+        updatedAt: serverTimestamp()
+      },
+      { merge: true }
+    );
   } else {
     // Fallback simulation: store family workspace in localStorage
     const allFamilies = JSON.parse(localStorage.getItem('fv_sim_families') || '{}');
@@ -195,19 +200,19 @@ export const fetchUserFamilies = async (user) => {
   // Fallback simulation
   const allFamilies = JSON.parse(localStorage.getItem('fv_sim_families') || '{}');
   const profile = JSON.parse(localStorage.getItem(`fv_user_profile_${user.uid}`) || '{}');
-  const familyIds = profile.familyIds || ['fam-8842'];
+  const familyIds = profile.familyIds || [];
 
-  return familyIds.map((id) => {
-    if (allFamilies[id]) return allFamilies[id];
-    return { ...INITIAL_FAMILY_PROFILE, id: 'fam-8842' };
-  });
+  return familyIds.map((id) => allFamilies[id]).filter(Boolean);
 };
 
 /**
  * 4. Fetch Members for a Family Workspace
  */
 export const subscribeFamilyMembers = (familyId, callback) => {
-  if (!familyId) return () => {};
+  if (!familyId) {
+    callback([]);
+    return () => {};
+  }
 
   if (db && isFirebaseConfigured) {
     const membersRef = collection(db, 'families', familyId, 'members');
@@ -226,7 +231,7 @@ export const subscribeFamilyMembers = (familyId, callback) => {
   // Fallback simulation
   const allFamilies = JSON.parse(localStorage.getItem('fv_sim_families') || '{}');
   const fam = allFamilies[familyId];
-  const list = fam ? fam.members || [] : INITIAL_MEMBERS;
+  const list = fam ? fam.members || [] : [];
   callback(list);
   return () => {};
 };
@@ -503,14 +508,17 @@ export const addDependentMemberToFirestore = async (familyId, dependentData) => 
  * 10. Document Operations
  */
 export const subscribeFamilyDocuments = (familyId, callback) => {
-  if (!familyId) return () => {};
+  if (!familyId) {
+    callback([]);
+    return () => {};
+  }
 
   if (db && isFirebaseConfigured) {
     const docsRef = collection(db, 'families', familyId, 'documents');
     return onSnapshot(
       docsRef,
       (snapshot) => {
-        const docsList = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+        const docsList = snapshot.docs.map((d) => ({ id: doc.id, ...d.data() }));
         callback(docsList);
       },
       (error) => {
@@ -521,7 +529,37 @@ export const subscribeFamilyDocuments = (familyId, callback) => {
 
   const allFamilies = JSON.parse(localStorage.getItem('fv_sim_families') || '{}');
   const fam = allFamilies[familyId];
-  const list = fam ? fam.documents || [] : INITIAL_DOCUMENTS;
+  const list = fam ? fam.documents || [] : [];
+  callback(list);
+  return () => {};
+};
+
+/**
+ * 11. Subscribe Family Invitations
+ */
+export const subscribeFamilyInvitations = (familyId, callback) => {
+  if (!familyId) {
+    callback([]);
+    return () => {};
+  }
+
+  if (db && isFirebaseConfigured) {
+    const invitesRef = collection(db, 'families', familyId, 'invitations');
+    return onSnapshot(
+      invitesRef,
+      (snapshot) => {
+        const invitesList = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+        callback(invitesList);
+      },
+      (error) => {
+        console.warn('Firestore invitations subscription notice:', error.message);
+      }
+    );
+  }
+
+  const allFamilies = JSON.parse(localStorage.getItem('fv_sim_families') || '{}');
+  const fam = allFamilies[familyId];
+  const list = fam ? fam.invitations || [] : [];
   callback(list);
   return () => {};
 };

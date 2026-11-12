@@ -38,8 +38,9 @@ export const InviteMemberModal = ({ isOpen, onClose }) => {
   };
 
   const handleCopyLink = () => {
-    const fakeLink = `https://familyvault.io/join?code=${createdInvite?.inviteCode || 'FV-DEMO'}`;
-    navigator.clipboard.writeText(fakeLink);
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://family-vault-qyka.onrender.com';
+    const link = `${origin}/join?code=${createdInvite?.inviteCode || ''}`;
+    navigator.clipboard.writeText(link);
     setCopied(true);
     showToast('Invitation link copied to clipboard!', 'success');
     setTimeout(() => setCopied(false), 2500);
@@ -142,7 +143,7 @@ export const InviteMemberModal = ({ isOpen, onClose }) => {
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <Input
             label="Full Name"
-            placeholder="e.g. Vikram Sharma"
+            placeholder="e.g. David Miller"
             required
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -214,7 +215,7 @@ export const InviteMemberModal = ({ isOpen, onClose }) => {
             <label className="fv-label">Welcome Message (Optional)</label>
             <input
               type="text"
-              placeholder="e.g. Welcome to our Sharma Family secure vault!"
+              placeholder="e.g. Welcome to our private family vault!"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               className="fv-input"

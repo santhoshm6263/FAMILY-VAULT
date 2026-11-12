@@ -224,7 +224,7 @@ export const RegisterPage = () => {
             label="Your Full Name"
             icon={User}
             required
-            placeholder="e.g. Santhosh Sharma"
+            placeholder="e.g. Santhosh M"
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
           />
@@ -232,7 +232,7 @@ export const RegisterPage = () => {
           <Input
             label="Family Vault Name"
             icon={Users}
-            placeholder="e.g. Sharma Family Vault"
+            placeholder="e.g. Santhosh Family Vault"
             helperText="You can invite spouse and members after creation"
             value={familyName}
             onChange={(e) => setFamilyName(e.target.value)}

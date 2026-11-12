@@ -5,6 +5,7 @@ import {
   createFamilyWorkspace,
   fetchUserFamilies,
   subscribeFamilyMembers,
+  subscribeFamilyInvitations,
   sendFamilyInvitation,
   acceptFamilyInvitation,
   rejectFamilyInvitation,
@@ -16,8 +17,6 @@ import {
   updateDocumentInFirestore,
   deleteDocumentFromFirestore
 } from '../firebase/firestoreService';
-import { INITIAL_MEMBERS, INITIAL_INVITES, INITIAL_FAMILY_PROFILE } from '../data/initialMembers';
-import { INITIAL_DOCUMENTS } from '../data/initialDocuments';
 
 const VaultContext = createContext();
 
@@ -27,57 +26,87 @@ export const VaultProvider = ({ children }) => {
   // Multi-family state
   const [userFamilies, setUserFamilies] = useState([]);
   const [currentFamilyId, setCurrentFamilyId] = useState(() => {
-    return localStorage.getItem('fv_current_family_id') || 'fam-8842';
+    return localStorage.getItem('fv_current_family_id') || null;
   });
 
   const [familyProfile, setFamilyProfile] = useState(() => {
     const saved = localStorage.getItem('fv_family_profile');
-    return saved ? JSON.parse(saved) : INITIAL_FAMILY_PROFILE;
+    try {
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
   });
 
-  const [members, setMembers] = useState(() => {
-    const saved = localStorage.getItem('fv_members');
-    return saved ? JSON.parse(saved) : INITIAL_MEMBERS;
-  });
-
-  const [invites, setInvites] = useState(() => {
-    const saved = localStorage.getItem('fv_invites');
-    return saved ? JSON.parse(saved) : INITIAL_INVITES;
-  });
-
-  const [documents, setDocuments] = useState(() => {
-    const saved = localStorage.getItem('fv_documents');
-    return saved ? JSON.parse(saved) : INITIAL_DOCUMENTS;
-  });
-
+  const [members, setMembers] = useState([]);
+  const [invites, setInvites] = useState([]);
+  const [documents, setDocuments] = useState([]);
   const [toasts, setToasts] = useState([]);
   const [loadingWorkspace, setLoadingWorkspace] = useState(false);
 
   // Sync current user's profile and families when currentUser changes
   useEffect(() => {
-    const initUserData = async () => {
-      if (!currentUser?.uid) return;
+    let isMounted = true;
 
+    const initUserData = async () => {
+      if (!currentUser?.uid) {
+        if (isMounted) {
+          setUserFamilies([]);
+          setCurrentFamilyId(null);
+          setFamilyProfile(null);
+          setMembers([]);
+          setInvites([]);
+          setDocuments([]);
+        }
+        return;
+      }
+
+      setLoadingWorkspace(true);
       try {
-        await syncUserProfile(currentUser, { familyId: currentFamilyId });
-        const families = await fetchUserFamilies(currentUser);
+        let families = await fetchUserFamilies(currentUser);
+
+        // Auto-provision personal family workspace for newly registered real users
+        if (!families || families.length === 0) {
+          const ownerName = currentUser.displayName || currentUser.name || (currentUser.email ? currentUser.email.split('@')[0] : 'My');
+          const defaultFamilyName = `${ownerName}'s Family Vault`;
+          const newFamily = await createFamilyWorkspace(currentUser, defaultFamilyName);
+          families = [newFamily];
+        }
+
+        if (!isMounted) return;
         setUserFamilies(families);
 
-        // If currentFamilyId is not in user's families, switch to first family
-        if (families.length > 0 && !families.some((f) => f.id === currentFamilyId)) {
-          switchFamily(families[0].id);
-        }
+        const savedFamilyId = localStorage.getItem('fv_current_family_id');
+        const activeFamily = families.find((f) => f.id === savedFamilyId) || families[0];
+
+        setCurrentFamilyId(activeFamily.id);
+        setFamilyProfile(activeFamily);
+        localStorage.setItem('fv_current_family_id', activeFamily.id);
+        localStorage.setItem('fv_family_profile', JSON.stringify(activeFamily));
+
+        await syncUserProfile(currentUser, { familyId: activeFamily.id });
       } catch (err) {
         console.warn('Error syncing user families:', err);
+      } finally {
+        if (isMounted) setLoadingWorkspace(false);
       }
     };
 
     initUserData();
+
+    return () => {
+      isMounted = false;
+    };
   }, [currentUser?.uid]);
 
-  // Subscribe to members & documents of the active family workspace
+  // Subscribe to members, invitations & documents of the active family workspace
   useEffect(() => {
-    if (!currentFamilyId) return;
+    if (!currentFamilyId) {
+      setMembers([]);
+      setDocuments([]);
+      setInvites([]);
+      return;
+    }
 
     localStorage.setItem('fv_current_family_id', currentFamilyId);
 
@@ -85,33 +114,48 @@ export const VaultProvider = ({ children }) => {
     const matchedFamily = userFamilies.find((f) => f.id === currentFamilyId);
     if (matchedFamily) {
       setFamilyProfile(matchedFamily);
+      localStorage.setItem('fv_family_profile', JSON.stringify(matchedFamily));
     }
 
-    // Subscribe to members
+    // Subscribe to real-time members
     const unsubscribeMembers = subscribeFamilyMembers(currentFamilyId, (newMembers) => {
-      if (newMembers && newMembers.length > 0) {
-        setMembers(newMembers);
-      }
+      setMembers(newMembers || []);
     });
 
-    // Subscribe to documents
+    // Subscribe to real-time documents
     const unsubscribeDocs = subscribeFamilyDocuments(currentFamilyId, (newDocs) => {
-      if (newDocs) {
-        setDocuments(newDocs);
-      }
+      setDocuments(newDocs || []);
+    });
+
+    // Subscribe to real-time invitations
+    const unsubscribeInvites = subscribeFamilyInvitations(currentFamilyId, (newInvites) => {
+      setInvites(newInvites || []);
     });
 
     return () => {
       unsubscribeMembers();
       unsubscribeDocs();
+      unsubscribeInvites();
     };
   }, [currentFamilyId, userFamilies]);
+
+  // Safe fallback active profile to prevent null access
+  const activeProfile = familyProfile || {
+    id: currentFamilyId || '',
+    name: currentUser ? `${currentUser.name || currentUser.displayName || 'My'}'s Family Vault` : 'Family Vault',
+    vaultCode: 'FV-SYNC',
+    planTier: 'Family Pro (Encrypted)',
+    storageUsed: '0 MB',
+    maxStorage: '500 MB',
+    securityLevel: 'AES-256 GCM Client-Side',
+    memberCount: members.length || 1
+  };
 
   // Determine current user's active role in this family
   const currentMemberRecord = members.find(
     (m) => (m.uid && m.uid === currentUser?.uid) || (m.email && m.email.toLowerCase() === currentUser?.email?.toLowerCase())
   );
-  const currentUserRole = currentMemberRecord?.role || (familyProfile.ownerId === currentUser?.uid ? 'Owner' : 'Owner');
+  const currentUserRole = currentMemberRecord?.role || (activeProfile.ownerId === currentUser?.uid ? 'Owner' : 'Owner');
   const isOwner = currentUserRole === 'Owner';
   const isAdmin = currentUserRole === 'Owner' || currentUserRole === 'Admin';
 
@@ -323,13 +367,10 @@ export const VaultProvider = ({ children }) => {
     showToast('Family Vault details updated', 'success');
   };
 
-  // Reset to sample initial data helper
+  // Reset helper (cleans transient state)
   const resetToSampleData = () => {
-    setDocuments(INITIAL_DOCUMENTS);
-    setMembers(INITIAL_MEMBERS);
-    setInvites(INITIAL_INVITES);
-    setFamilyProfile(INITIAL_FAMILY_PROFILE);
-    showToast('Reset vault to initial data', 'info');
+    setDocuments([]);
+    showToast('Vault refreshed', 'info');
   };
 
   return (
@@ -337,7 +378,7 @@ export const VaultProvider = ({ children }) => {
       value={{
         currentFamilyId,
         userFamilies,
-        familyProfile,
+        familyProfile: activeProfile,
         members,
         invites,
         documents,

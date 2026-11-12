@@ -56,10 +56,13 @@ export const Sidebar = ({ isMobileOpen, closeMobileSidebar, onOpenUploadModal })
 
   const handleCopyVaultId = (e) => {
     e.stopPropagation();
-    navigator.clipboard.writeText(familyProfile.vaultCode);
-    setCopiedId(true);
-    showToast(`Copied Vault Code: ${familyProfile.vaultCode}`, 'info');
-    setTimeout(() => setCopiedId(false), 2000);
+    const code = familyProfile?.vaultCode || '';
+    if (code) {
+      navigator.clipboard.writeText(code);
+      setCopiedId(true);
+      showToast(`Copied Vault Code: ${code}`, 'info');
+      setTimeout(() => setCopiedId(false), 2000);
+    }
   };
 
   const handleCreateFamily = async (e) => {
@@ -282,11 +285,11 @@ export const Sidebar = ({ isMobileOpen, closeMobileSidebar, onOpenUploadModal })
                   overflow: 'hidden'
                 }}
               >
-                {familyProfile.name}
+                {familyProfile?.name || 'My Family Vault'}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
                 <span style={{ fontSize: '0.7rem', color: 'var(--slate-500)', fontFamily: 'var(--font-mono)' }}>
-                  {familyProfile.vaultCode}
+                  {familyProfile?.vaultCode || 'FV-SECURE'}
                 </span>
                 <button
                   onClick={handleCopyVaultId}
@@ -549,7 +552,7 @@ export const Sidebar = ({ isMobileOpen, closeMobileSidebar, onOpenUploadModal })
                 <span>Vault Storage</span>
               </div>
               <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--primary)' }}>
-                {familyProfile.storageUsed}
+                {familyProfile?.storageUsed || '0 MB'}
               </span>
             </div>
             <div style={{ width: '100%', height: '5px', backgroundColor: 'var(--slate-200)', borderRadius: '3px', overflow: 'hidden' }}>
@@ -557,7 +560,7 @@ export const Sidebar = ({ isMobileOpen, closeMobileSidebar, onOpenUploadModal })
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', fontSize: '0.6875rem', color: 'var(--slate-400)' }}>
               <span>Encrypted Client-side</span>
-              <span>Max: {familyProfile.maxStorage}</span>
+              <span>Max: {familyProfile?.maxStorage || '500 MB'}</span>
             </div>
           </div>
         </div>

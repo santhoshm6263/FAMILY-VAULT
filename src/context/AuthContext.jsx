@@ -13,45 +13,6 @@ import { auth, googleProvider, isFirebaseConfigured } from '../firebase/config';
 
 const AuthContext = createContext();
 
-const DEMO_ACCOUNTS = {
-  Owner: {
-    uid: 'demo-mem-1',
-    id: 'mem-1',
-    name: 'Santhosh Sharma',
-    displayName: 'Santhosh Sharma',
-    email: 'santhosh@familyvault.io',
-    emailVerified: true,
-    role: 'Owner',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-    familyId: 'fam-8842',
-    familyName: 'Sharma Family Vault'
-  },
-  Admin: {
-    uid: 'demo-mem-2',
-    id: 'mem-2',
-    name: 'Priya Sharma',
-    displayName: 'Priya Sharma',
-    email: 'priya.s@gmail.com',
-    emailVerified: true,
-    role: 'Admin',
-    avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80',
-    familyId: 'fam-8842',
-    familyName: 'Sharma Family Vault'
-  },
-  Member: {
-    uid: 'demo-mem-3',
-    id: 'mem-3',
-    name: 'Rajesh Sharma',
-    displayName: 'Rajesh Sharma',
-    email: 'rajesh.sharma@outlook.com',
-    emailVerified: true,
-    role: 'Member',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-    familyId: 'fam-8842',
-    familyName: 'Sharma Family Vault'
-  }
-};
-
 export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -60,17 +21,18 @@ export const AuthProvider = ({ children }) => {
   // Helper to format user object uniformly across Firebase and fallback modes
   const formatUser = (user, additionalData = {}) => {
     if (!user) return null;
+    const defaultName = user.displayName || additionalData.fullName || user.email?.split('@')[0] || 'Family Member';
     return {
       uid: user.uid,
       id: user.uid,
       email: user.email,
-      name: user.displayName || additionalData.fullName || user.email?.split('@')[0] || 'Family Member',
-      displayName: user.displayName || additionalData.fullName || user.email?.split('@')[0] || 'Family Member',
+      name: defaultName,
+      displayName: defaultName,
       avatar: user.photoURL || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
       emailVerified: user.emailVerified ?? false,
       role: additionalData.role || 'Owner',
-      familyId: additionalData.familyId || 'fam-8842',
-      familyName: additionalData.familyName || `${user.displayName || user.email?.split('@')[0]}'s Family Vault`,
+      familyId: additionalData.familyId || null,
+      familyName: additionalData.familyName || `${defaultName}'s Family Vault`,
       rawUser: user
     };
   };
@@ -167,21 +129,19 @@ export const AuthProvider = ({ children }) => {
       setCurrentUser(formatted);
       return formatted;
     } else {
-      // Local fallback login
-      const matchedDemo = Object.values(DEMO_ACCOUNTS).find(
-        (u) => u.email.toLowerCase() === (email || '').toLowerCase()
-      );
-      const user = matchedDemo || {
-        uid: `usr-${Date.now()}`,
-        id: `usr-${Date.now()}`,
-        name: email.split('@')[0],
-        displayName: email.split('@')[0],
+      // Local mode login
+      const cleanName = email.split('@')[0];
+      const user = {
+        uid: `usr_${cleanName}_${Date.now()}`,
+        id: `usr_${cleanName}_${Date.now()}`,
+        name: cleanName,
+        displayName: cleanName,
         email: email,
         emailVerified: true,
         avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
         role: 'Owner',
-        familyId: 'fam-8842',
-        familyName: 'Sharma Family Vault'
+        familyId: null,
+        familyName: `${cleanName}'s Family Vault`
       };
       setCurrentUser(user);
       return user;
@@ -200,16 +160,16 @@ export const AuthProvider = ({ children }) => {
     } else {
       // Local fallback Google login
       const googleUser = {
-        uid: 'google-usr-8812',
-        id: 'google-usr-8812',
-        name: 'Santhosh Sharma (Google)',
-        displayName: 'Santhosh Sharma',
-        email: 'santhosh.google@familyvault.io',
-        emailVerified: true, // Google accounts are verified
+        uid: `google_usr_${Date.now()}`,
+        id: `google_usr_${Date.now()}`,
+        name: 'Google User',
+        displayName: 'Google User',
+        email: 'user@gmail.com',
+        emailVerified: true,
         avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
         role: 'Owner',
-        familyId: 'fam-8842',
-        familyName: 'Sharma Family Vault'
+        familyId: null,
+        familyName: `My Family Vault`
       };
       setCurrentUser(googleUser);
       return googleUser;
@@ -220,9 +180,9 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     if (auth && isFirebaseConfigured) {
       await signOut(auth);
-    } else {
-      localStorage.removeItem('fv_simulated_user');
     }
+    localStorage.removeItem('fv_simulated_user');
+    localStorage.removeItem('fv_current_family_id');
     setCurrentUser(null);
   };
 
@@ -255,18 +215,11 @@ export const AuthProvider = ({ children }) => {
       setCurrentUser(updated);
       return updated.emailVerified;
     } else if (currentUser) {
-      // In simulation mode, reload can mark verified
       const updated = { ...currentUser, emailVerified: true };
       setCurrentUser(updated);
       return true;
     }
     return false;
-  };
-
-  // 8. 1-Click Demo Persona Switcher (Owner, Admin, Member)
-  const demoLogin = (role = 'Owner') => {
-    const demo = DEMO_ACCOUNTS[role] || DEMO_ACCOUNTS.Owner;
-    setCurrentUser(demo);
   };
 
   return (
@@ -282,8 +235,7 @@ export const AuthProvider = ({ children }) => {
         logout,
         resetPassword,
         resendVerificationEmail,
-        reloadUser,
-        demoLogin
+        reloadUser
       }}
     >
       {children}

@@ -98,7 +98,7 @@ export const DashboardPage = () => {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
               <span style={{ fontSize: '0.75rem', fontWeight: 700, backgroundColor: 'rgba(255, 255, 255, 0.2)', padding: '2px 8px', borderRadius: '4px', textTransform: 'uppercase' }}>
-                {familyProfile.name} ({familyProfile.vaultCode})
+                {familyProfile?.name || 'Family Vault'} ({familyProfile?.vaultCode || 'FV-SECURE'})
               </span>
               <span style={{ fontSize: '0.75rem', color: '#c7d2fe', display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <Lock size={12} />
@@ -109,7 +109,7 @@ export const DashboardPage = () => {
               Welcome back, {currentUser?.name?.split(' ')[0] || 'Member'}! 👋
             </h2>
             <p style={{ fontSize: '0.9rem', color: '#e0e7ff', marginTop: '4px', maxWidth: '600px' }}>
-              Your <strong>{familyProfile.name}</strong> workspace is isolated and protected. All {totalDocs} identity records across {totalMembers} family members are safely encrypted.
+              Your <strong>{familyProfile?.name || 'Family Vault'}</strong> workspace is isolated and protected. All {totalDocs} identity records across {totalMembers} family members are safely encrypted.
             </p>
           </div>
 
@@ -367,28 +367,47 @@ export const DashboardPage = () => {
           Recent Vault Activity & Audit Trail
         </h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '0.8125rem' }}>
-            <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--emerald-500)' }} />
-            <div style={{ flex: 1, color: 'var(--slate-700)' }}>
-              <strong>Santhosh Sharma</strong> uploaded and encrypted <em>Santhosh's Aadhaar Card</em> (Front & Back).
+          {/* Dynamically generated from real documents */}
+          {documents.slice(0, 3).map((d) => (
+            <div key={`doc-act-${d.id}`} style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '0.8125rem' }}>
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--emerald-500)' }} />
+              <div style={{ flex: 1, color: 'var(--slate-700)' }}>
+                <strong>{d.uploadedByName || d.uploadedBy || currentUser?.name || 'Member'}</strong> uploaded and encrypted{' '}
+                <em>{d.title}</em> ({d.category || 'Identity Document'}).
+              </div>
+              <span style={{ color: 'var(--slate-400)', fontSize: '0.75rem' }}>{d.uploadedAt || 'Recent'}</span>
             </div>
-            <span style={{ color: 'var(--slate-400)', fontSize: '0.75rem' }}>Today at 10:14 AM</span>
-          </div>
+          ))}
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '0.8125rem' }}>
-            <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--blue-500)' }} />
-            <div style={{ flex: 1, color: 'var(--slate-700)' }}>
-              <strong>Priya Sharma</strong> was verified as <strong>Admin</strong> with multi-member inspection rights.
+          {/* Dynamically generated from real members */}
+          {members.slice(0, 2).map((m) => (
+            <div key={`mem-act-${m.id}`} style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '0.8125rem' }}>
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--blue-500)' }} />
+              <div style={{ flex: 1, color: 'var(--slate-700)' }}>
+                <strong>{m.name}</strong> is verified as <strong>{m.role}</strong> ({m.relation || 'Member'}).
+              </div>
+              <span style={{ color: 'var(--slate-400)', fontSize: '0.75rem' }}>{m.joinedDate || 'Active'}</span>
             </div>
-            <span style={{ color: 'var(--slate-400)', fontSize: '0.75rem' }}>Yesterday</span>
-          </div>
+          ))}
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '0.8125rem' }}>
-            <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--amber-500)' }} />
-            <div style={{ flex: 1, color: 'var(--slate-700)' }}>
-              Invitation link generated for <strong>Vikram Sharma</strong> (Pending confirmation).
+          {/* Dynamically generated from real invites */}
+          {invites.slice(0, 2).map((inv) => (
+            <div key={`inv-act-${inv.id || inv.inviteCode}`} style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '0.8125rem' }}>
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--amber-500)' }} />
+              <div style={{ flex: 1, color: 'var(--slate-700)' }}>
+                Invitation link for <strong>{inv.name || inv.email}</strong> ({inv.status || 'Pending'}).
+              </div>
+              <span style={{ color: 'var(--slate-400)', fontSize: '0.75rem' }}>{inv.createdAt || 'Recent'}</span>
             </div>
-            <span style={{ color: 'var(--slate-400)', fontSize: '0.75rem' }}>2 days ago</span>
+          ))}
+
+          {/* Core Workspace Security Status */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '0.8125rem' }}>
+            <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--primary)' }} />
+            <div style={{ flex: 1, color: 'var(--slate-700)' }}>
+              Family Vault <strong>{familyProfile?.name || 'Personal Workspace'}</strong> active with AES-256 client encryption.
+            </div>
+            <span style={{ color: 'var(--emerald-600)', fontSize: '0.75rem', fontWeight: 600 }}>Active</span>
           </div>
         </div>
       </div>

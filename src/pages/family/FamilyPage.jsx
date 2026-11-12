@@ -112,7 +112,8 @@ export const FamilyPage = () => {
   };
 
   const handleCopyInviteLink = (code) => {
-    navigator.clipboard.writeText(`https://familyvault.io/join?code=${code}`);
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://family-vault-qyka.onrender.com';
+    navigator.clipboard.writeText(`${origin}/join?code=${code}`);
     setCopiedCode(code);
     showToast(`Copied invitation link (${code})`, 'info');
     setTimeout(() => setCopiedCode(null), 2000);
@@ -204,7 +205,7 @@ export const FamilyPage = () => {
         <form onSubmit={handleDirectAddSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <Input
             label="Full Name"
-            placeholder="e.g. Aarav Sharma"
+            placeholder="e.g. Alex"
             required
             value={directName}
             onChange={(e) => setDirectName(e.target.value)}

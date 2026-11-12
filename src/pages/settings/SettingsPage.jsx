@@ -71,13 +71,13 @@ export const SettingsPage = () => {
               label="Family Vault Name"
               value={familyName}
               onChange={(e) => setFamilyName(e.target.value)}
-              placeholder="e.g. Sharma Family Vault"
+              placeholder="e.g. My Household Vault"
               required
             />
 
             <Input
               label="Vault Cryptographic Code"
-              value={familyProfile.vaultCode}
+              value={familyProfile?.vaultCode || ''}
               disabled
               helperText="Unique permanent identifier for cross-device syncing"
             />
